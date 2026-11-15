@@ -1,0 +1,18 @@
+# ไฟล์ที่แอปสร้างเองตอนรัน
+sounds/
+err.log
+*.log
+
+# รูปจากโหมด --selftest (รูปที่ใช้ใน README อยู่ใน docs/)
+selftest_*.png
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# ไฟล์ลับ (กันเผลอใส่ทีหลัง)
+.env
+*.pem
+*.key
