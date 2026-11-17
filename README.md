@@ -33,4 +33,5 @@ pip install -r requirements.txt
 - ไม่ต่อเน็ต ไม่ส่งข้อมูลไปไหน
 - อ่านสถานะปุ่มแค่ 4 ปุ่ม (คลิกซ้าย, Ctrl, Shift, F12) เพื่อรู้ว่าต้องฟาดหรือเปิด/ปิด ไม่บันทึกการพิมพ์
 - ค่าที่ตั้งเก็บใน registry ที่ `HKCU\Software\SlapCursor`
+- ถ้าติ๊ก "เปิดพร้อม Windows" ในเมนู จะเพิ่มค่าชื่อ `SlapCursor` ใน `HKCU\Software\Microsoft\Windows\CurrentVersion\Run` (ระดับผู้ใช้ ไม่ต้องใช้ admin) เอาติ๊กออกเมื่อไหร่ค่านี้ก็ถูกลบ
 - ไฟล์เสียงสังเคราะห์ด้วยโค้ดเอง เก็บในโฟลเดอร์ `sounds/` ข้างตัวโปรแกรม
