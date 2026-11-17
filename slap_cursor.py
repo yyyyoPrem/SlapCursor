@@ -16,6 +16,7 @@ import random
 import sys
 import time
 import wave
+import winreg
 import winsound
 
 import numpy as np
@@ -822,13 +823,13 @@ def set_larb_name(name):
 STR = dict(
     th=dict(title="เลือกอาวุธ", turn_off="⏻  เปิดอยู่ — กดเพื่อปิด", turn_on="⏻  ปิดอยู่ — กดเพื่อเปิด",
             volume="ระดับเสียงเอฟเฟกต์", mute="ปิดเสียง", size="ขนาด", rename="✎  เปลี่ยนชื่อลาบ…", rename_prompt="ตั้งชื่อลาบ (เว้นว่าง = กลับไปใช้ชื่อเดิม)",
-            fade="ลาบจางหายเร็วแค่ไหน", fades=("ช้า", "ปกติ", "เร็ว", "เร็วมาก"), lang="ภาษา / Language", quit="ออกจากโปรแกรม",
+            fade="ลาบจางหายเร็วแค่ไหน", fades=("ช้า", "ปกติ", "เร็ว", "เร็วมาก"), lang="ภาษา / Language", autostart="เปิดพร้อม Windows", quit="ออกจากโปรแกรม",
             off_tip="ปิดอยู่", hello="SlapCursor เปิดแล้ว",
             hello2="คลิกซ้ายที่ไหนก็ได้เพื่อฟาด · คลิกไอคอนนี้เพื่อเปลี่ยนอาวุธหรือปิด-เปิด"),
     en=dict(title="Choose your weapon", turn_off="⏻  ON — click to turn off",
             turn_on="⏻  OFF — click to turn on", volume="Effect volume", mute="Mute", size="Size", rename="✎  Rename the larb…", rename_prompt="Name your larb (empty = default name)",
             fade="Larb fade speed", fades=("Slow", "Normal", "Fast", "Very fast"),
-            lang="Language / ภาษา", quit="Quit program", off_tip="off",
+            lang="Language / ภาษา", autostart="Start with Windows", quit="Quit program", off_tip="off",
             hello="SlapCursor is running",
             hello2="Left-click anywhere to hit · click this icon to switch weapon or turn off"),
 )
@@ -1545,6 +1546,44 @@ def selftest(out_dir):
 
 
 # ================================================================ tray + main
+# ================================================================ เปิดพร้อม Windows
+RUN_KEY = r"Software\Microsoft\Windows\CurrentVersion\Run"
+RUN_NAME = "SlapCursor"
+
+
+def autostart_command():
+    """คำสั่งที่ Windows จะรันตอนล็อกอิน: pythonw (ไม่มีหน้าต่างดำ) + ไฟล์นี้ ใส่ quote กัน path มีช่องว่าง"""
+    exe = sys.executable
+    pyw = os.path.join(os.path.dirname(exe), "pythonw.exe")
+    if os.path.exists(pyw):
+        exe = pyw
+    return '"%s" "%s"' % (exe, os.path.abspath(__file__))
+
+
+def autostart_get():
+    try:
+        with winreg.OpenKey(winreg.HKEY_CURRENT_USER, RUN_KEY) as k:
+            return winreg.QueryValueEx(k, RUN_NAME)[0]
+    except OSError:
+        return None
+
+
+def autostart_set(on):
+    """เขียน/ลบค่าเฉพาะของแอปนี้ใน HKCU Run (ระดับผู้ใช้ ไม่ต้องใช้สิทธิ์ admin)"""
+    try:
+        with winreg.OpenKey(winreg.HKEY_CURRENT_USER, RUN_KEY, 0, winreg.KEY_SET_VALUE) as k:
+            if on:
+                winreg.SetValueEx(k, RUN_NAME, 0, winreg.REG_SZ, autostart_command())
+            else:
+                try:
+                    winreg.DeleteValue(k, RUN_NAME)
+                except FileNotFoundError:
+                    pass
+        return True
+    except OSError:
+        return False
+
+
 def main():
     global HEART
     QtWidgets.QApplication.setAttribute(Qt.AA_EnableHighDpiScaling)
@@ -1552,6 +1591,11 @@ def main():
     app = QtWidgets.QApplication(sys.argv)
     app.setQuitOnLastWindowClosed(False)
     HEART = heart_path()
+
+    if len(sys.argv) > 2 and sys.argv[1] == "--autostart":
+        ok = autostart_set(sys.argv[2] == "on")
+        print("autostart", sys.argv[2], "ok" if ok else "failed", "->", autostart_get())
+        return 0 if ok else 1
 
     if len(sys.argv) > 2 and sys.argv[1] == "--selftest":
         selftest(sys.argv[2])
@@ -1562,6 +1606,8 @@ def main():
         return 0
 
     settings = QtCore.QSettings("SlapCursor", "SlapCursor")
+    if autostart_get() not in (None, autostart_command()):
+        autostart_set(True)
 
     def read_int(key, default, allowed):
         """อ่านค่าตั้งค่าแบบปลอดภัย: ค่าเพี้ยน/ถูกแก้ใน registry -> ใช้ค่าเริ่มต้น ไม่ crash"""
@@ -1645,6 +1691,10 @@ def main():
                 pass
         later(build_menu)
 
+    def toggle_autostart(on):
+        autostart_set(on)
+        later(build_menu)
+
     def set_fade(i):
         state["fade"] = i
         ov.larb_life = LARB_LIVES[i]
@@ -1709,6 +1759,11 @@ def main():
             a.setCheckable(True)
             a.setChecked(v == state["vol"])
             a.triggered.connect(lambda _=False, v=v: set_volume(v))
+        menu.addSeparator()
+        auto = menu.addAction(T["autostart"])
+        auto.setCheckable(True)
+        auto.setChecked(autostart_get() is not None)
+        auto.toggled.connect(toggle_autostart)
         menu.addSeparator()
         menu.addAction(T["quit"]).triggered.connect(app.quit)
         refresh_tray()
